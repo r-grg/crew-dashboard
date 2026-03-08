@@ -46,14 +46,14 @@ export function KpiCards({ selectedYear = "all" }: KpiCardsProps) {
       color: "text-sky-400",
       bgColor: "bg-sky-950/50",
     },
-    {
-      title: "Top Earner",
-      value: topEarner?.name ?? "N/A",
-      description: topEarner ? formatCurrency(topEarner.totalEarnings) : "No data",
-      icon: Trophy,
-      color: "text-amber-400",
-      bgColor: "bg-amber-950/50",
-    },
+    // {
+    //   title: "Top Earner",
+    //   value: topEarner?.name ?? "N/A",
+    //   description: topEarner ? formatCurrency(topEarner.totalEarnings) : "No data",
+    //   icon: Trophy,
+    //   color: "text-amber-400",
+    //   bgColor: "bg-amber-950/50",
+    // },
     {
       title: "Most Active",
       value: mostActive?.name ?? "N/A",
@@ -65,7 +65,7 @@ export function KpiCards({ selectedYear = "all" }: KpiCardsProps) {
   ]
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
       {kpis.map((kpi) => {
         const Icon = kpi.icon
         return (

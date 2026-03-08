@@ -125,8 +125,8 @@ export function MembersTable() {
                   <SortableHead label="Events"     column="totalEvents"   className="text-center" />
                   <SortableHead label="Workshops"  column="workshopCount" className="text-center" />
                   <SortableHead label="Shows"      column="showCount"     className="text-center" />
-                  <SortableHead label="Battles"    column="battleCount"   className="text-center" />
                   <SortableHead label="Invites"    column="inviteCount"   className="text-center" />
+                  <SortableHead label="Battles"    column="battleCount"   className="text-center" />
                   <TableHead className="text-zinc-400 text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -175,13 +175,13 @@ export function MembersTable() {
                         </Badge>
                       </TableCell>
                       <TableCell className="text-center">
-                        <Badge variant="outline" className="bg-rose-950 text-rose-400 border-rose-800">
-                          {member.battleCount}
+                        <Badge variant="outline" className="bg-amber-950 text-amber-400 border-amber-800">
+                          {member.inviteCount}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-center">
-                        <Badge variant="outline" className="bg-amber-950 text-amber-400 border-amber-800">
-                          {member.inviteCount}
+                        <Badge variant="outline" className="bg-rose-950 text-rose-400 border-rose-800">
+                          {member.battleCount}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right">

@@ -10,24 +10,33 @@ import {
 } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { useAuth } from "@/context/auth-context"
-import type { Member, EventWithParticipants } from "@/lib/types"
+import type {
+  Member,
+  UpdateWorkshopShowPayload,
+  UpdateInviteBattlePayload,
+  UpdateMemberPayload,
+} from "@/lib/types"
 
 // Keep the same shape the existing components expect
 export interface WorkshopShow {
   id: string
   date: string
+  endDate: string | null
   event: string
   type: "workshop" | "show"
   amountPerPerson: number
-  participants: string[] // member names
+  participants: string[] // member names for display
+  participantIds: string[] // member IDs for editing
 }
 
 export interface InviteBattle {
   id: string
   date: string
+  endDate: string | null
   event: string
   type: "battle" | "invite"
-  participants: string[] // member names
+  participants: string[] // member names for display
+  participantIds: string[] // member IDs for editing
 }
 
 interface DataContextValue {
@@ -38,8 +47,13 @@ interface DataContextValue {
   refresh: () => Promise<void>
   // Admin mutations
   addMember: (name: string) => Promise<void>
-  addWorkshopShow: (data: Omit<WorkshopShow, "id">) => Promise<void>
-  addInviteBattle: (data: Omit<InviteBattle, "id">) => Promise<void>
+  addWorkshopShow: (data: Omit<WorkshopShow, "id" | "participantIds">) => Promise<void>
+  addInviteBattle: (data: Omit<InviteBattle, "id" | "participantIds">) => Promise<void>
+  updateWorkshopShow: (payload: UpdateWorkshopShowPayload) => Promise<void>
+  updateInviteBattle: (payload: UpdateInviteBattlePayload) => Promise<void>
+  deleteEvent: (eventId: string) => Promise<void>
+  updateMember: (payload: UpdateMemberPayload) => Promise<void>
+  setMemberActive: (memberId: string, active: boolean) => Promise<void>
 }
 
 const DataContext = createContext<DataContextValue | undefined>(undefined)
@@ -62,7 +76,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     setIsLoading(true)
 
     try {
-      // Fetch members
+      // Fetch all members (including inactive — historical records must remain intact)
       const { data: membersData, error: membersError } = await supabase
         .from("members")
         .select("*")
@@ -94,26 +108,32 @@ export function DataProvider({ children }: { children: ReactNode }) {
       const battles: InviteBattle[] = []
 
       for (const event of eventsData ?? []) {
-        const participantNames = (event.event_participants as { member_id: string }[])
-          .map((ep) => memberMap.get(ep.member_id) ?? "Unknown")
+        const eps = event.event_participants as { member_id: string }[]
+        const participantIds = eps.map((ep) => ep.member_id)
+        const participantNames = participantIds
+          .map((id) => memberMap.get(id) ?? "Unknown")
           .filter(Boolean)
 
         if (event.event_type === "workshop" || event.event_type === "show") {
           workshops.push({
             id: event.id,
             date: event.event_date,
+            endDate: event.event_end_date ?? null,
             event: event.title,
             type: event.event_type,
             amountPerPerson: event.amount_per_person ?? 0,
             participants: participantNames,
+            participantIds,
           })
         } else {
           battles.push({
             id: event.id,
             date: event.event_date,
+            endDate: event.event_end_date ?? null,
             event: event.title,
             type: event.event_type,
             participants: participantNames,
+            participantIds,
           })
         }
       }
@@ -131,6 +151,30 @@ export function DataProvider({ children }: { children: ReactNode }) {
     fetchData()
   }, [fetchData])
 
+  // ── Helper: upsert participants for an event ────────────────
+  const replaceParticipants = useCallback(
+    async (eventId: string, memberIds: string[]) => {
+      // Delete existing participants first (safe even without DB cascade)
+      const { error: delError } = await supabase
+        .from("event_participants")
+        .delete()
+        .eq("event_id", eventId)
+      if (delError) throw delError
+
+      if (memberIds.length > 0) {
+        const inserts = memberIds.map((id) => ({
+          event_id: eventId,
+          member_id: id,
+        }))
+        const { error: insError } = await supabase
+          .from("event_participants")
+          .insert(inserts)
+        if (insError) throw insError
+      }
+    },
+    [supabase]
+  )
+
   // ── Admin mutations ────────────────────────────────────────
 
   const addMember = useCallback(
@@ -145,13 +189,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
   )
 
   const addWorkshopShow = useCallback(
-    async (data: Omit<WorkshopShow, "id">) => {
-      // 1. Insert event
+    async (data: Omit<WorkshopShow, "id" | "participantIds">) => {
       const { data: eventRow, error: eventError } = await supabase
         .from("events")
         .insert({
           title: data.event,
           event_date: data.date,
+          event_end_date: data.endDate || null,
           event_type: data.type,
           amount_per_person: data.amountPerPerson || null,
         })
@@ -160,7 +204,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
       if (eventError) throw eventError
 
-      // 2. Resolve participant names → IDs
       if (data.participants.length > 0) {
         const { data: memberRows, error: memberError } = await supabase
           .from("members")
@@ -188,13 +231,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
   )
 
   const addInviteBattle = useCallback(
-    async (data: Omit<InviteBattle, "id">) => {
-      // 1. Insert event
+    async (data: Omit<InviteBattle, "id" | "participantIds">) => {
       const { data: eventRow, error: eventError } = await supabase
         .from("events")
         .insert({
           title: data.event,
           event_date: data.date,
+          event_end_date: data.endDate || null,
           event_type: data.type,
           amount_per_person: null,
         })
@@ -203,7 +246,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
       if (eventError) throw eventError
 
-      // 2. Resolve participant names → IDs
       if (data.participants.length > 0) {
         const { data: memberRows, error: memberError } = await supabase
           .from("members")
@@ -230,6 +272,92 @@ export function DataProvider({ children }: { children: ReactNode }) {
     [supabase, fetchData]
   )
 
+  const updateWorkshopShow = useCallback(
+    async (payload: UpdateWorkshopShowPayload) => {
+      const { error: eventError } = await supabase
+        .from("events")
+        .update({
+          title: payload.title,
+          event_date: payload.event_date,
+          event_end_date: payload.event_end_date || null,
+          event_type: payload.event_type,
+          amount_per_person: payload.amount_per_person || null,
+        })
+        .eq("id", payload.id)
+
+      if (eventError) throw eventError
+
+      await replaceParticipants(payload.id, payload.participant_ids)
+      await fetchData()
+    },
+    [supabase, fetchData, replaceParticipants]
+  )
+
+  const updateInviteBattle = useCallback(
+    async (payload: UpdateInviteBattlePayload) => {
+      const { error: eventError } = await supabase
+        .from("events")
+        .update({
+          title: payload.title,
+          event_date: payload.event_date,
+          event_end_date: payload.event_end_date || null,
+          event_type: payload.event_type,
+          amount_per_person: null,
+        })
+        .eq("id", payload.id)
+
+      if (eventError) throw eventError
+
+      await replaceParticipants(payload.id, payload.participant_ids)
+      await fetchData()
+    },
+    [supabase, fetchData, replaceParticipants]
+  )
+
+  const deleteEvent = useCallback(
+    async (eventId: string) => {
+      // Explicitly delete participants first (safe even if DB cascade exists)
+      const { error: epError } = await supabase
+        .from("event_participants")
+        .delete()
+        .eq("event_id", eventId)
+      if (epError) throw epError
+
+      const { error: eventError } = await supabase
+        .from("events")
+        .delete()
+        .eq("id", eventId)
+      if (eventError) throw eventError
+
+      await fetchData()
+    },
+    [supabase, fetchData]
+  )
+
+  const updateMember = useCallback(
+    async (payload: UpdateMemberPayload) => {
+      const { error } = await supabase
+        .from("members")
+        .update({ name: payload.name })
+        .eq("id", payload.id)
+      if (error) throw error
+      await fetchData()
+    },
+    [supabase, fetchData]
+  )
+
+  const setMemberActive = useCallback(
+    async (memberId: string, active: boolean) => {
+      const { error } = await supabase
+        .from("members")
+        .update({ active })
+        .eq("id", memberId)
+      if (error) throw error
+      await fetchData()
+    },
+    [supabase, fetchData]
+  )
+
   return (
     <DataContext.Provider
       value={{
@@ -241,6 +369,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
         addMember,
         addWorkshopShow,
         addInviteBattle,
+        updateWorkshopShow,
+        updateInviteBattle,
+        deleteEvent,
+        updateMember,
+        setMemberActive,
       }}
     >
       {children}

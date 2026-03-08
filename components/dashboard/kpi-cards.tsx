@@ -2,6 +2,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { useData } from "@/context/data-context"
+import { filterByYear } from "@/hooks/use-year-filter"
 import {
   calculateMemberStats,
   getTopEarner,
@@ -10,38 +11,37 @@ import {
   getTotalEvents,
   formatCurrency,
 } from "@/utils/calculations"
-import { DollarSign, Calendar, Trophy, Users } from "lucide-react"
+import { Euro, Calendar, Trophy, Users } from "lucide-react"
 
-export function KpiCards() {
+interface KpiCardsProps {
+  selectedYear?: string
+}
+
+export function KpiCards({ selectedYear = "all" }: KpiCardsProps) {
   const { members, workshopsAndShows, invitesAndBattles } = useData()
-  
-  console.log("[v0] KpiCards - members:", members.length, members)
-  console.log("[v0] KpiCards - workshopsAndShows:", workshopsAndShows.length, workshopsAndShows)
-  console.log("[v0] KpiCards - invitesAndBattles:", invitesAndBattles.length, invitesAndBattles)
-  
-  const stats = calculateMemberStats(members, workshopsAndShows, invitesAndBattles)
+
+  const filteredWorkshops = filterByYear(workshopsAndShows, selectedYear)
+  const filteredBattles = filterByYear(invitesAndBattles, selectedYear)
+
+  const stats = calculateMemberStats(members, filteredWorkshops, filteredBattles)
   const topEarner = getTopEarner(stats)
   const mostActive = getMostActiveMember(stats)
-  const totalEarnings = getTotalEarnings(workshopsAndShows)
-  const totalEvents = getTotalEvents(workshopsAndShows, invitesAndBattles)
-  
-  console.log("[v0] KpiCards - stats:", stats)
-  console.log("[v0] KpiCards - totalEarnings:", totalEarnings)
-  console.log("[v0] KpiCards - totalEvents:", totalEvents)
+  const totalEarnings = getTotalEarnings(filteredWorkshops)
+  const totalEvents = getTotalEvents(filteredWorkshops, filteredBattles)
 
   const kpis = [
     {
       title: "Total Earnings",
       value: formatCurrency(totalEarnings),
       description: "From all workshops and shows",
-      icon: DollarSign,
+      icon: Euro,
       color: "text-emerald-400",
       bgColor: "bg-emerald-950/50",
     },
     {
       title: "Total Events",
       value: totalEvents.toString(),
-      description: `${workshopsAndShows.length} paid, ${invitesAndBattles.length} competitions`,
+      description: `${filteredWorkshops.length} paid, ${filteredBattles.length} competitions`,
       icon: Calendar,
       color: "text-sky-400",
       bgColor: "bg-sky-950/50",

@@ -49,7 +49,7 @@ export function Navigation() {
                   <Link key={item.href} href={item.href}>
                     <Button
                       variant="ghost"
-                      size="sm"
+                      size="lg"
                       className={cn(
                         "text-zinc-400 hover:text-white hover:bg-zinc-800",
                         isActive && "text-white bg-zinc-800"
@@ -66,7 +66,7 @@ export function Navigation() {
 
           <div className="flex items-center gap-3">
             {user?.email && (
-              <span className="hidden lg:block text-xs text-zinc-500 max-w-40 truncate">
+              <span className="hidden lg:block text-sm text-zinc-500 max-w-40 truncate">
                 {user.email}
               </span>
             )}
@@ -81,16 +81,16 @@ export function Navigation() {
               )}
             >
               {isAdmin ? (
-                <Shield className="h-3 w-3" />
+                <Shield className="h-4 w-4" />
               ) : (
-                <Eye className="h-3 w-3" />
+                <Eye className="h-4 w-4" />
               )}
               {role === "admin" ? "Admin" : "Viewer"}
             </Badge>
 
             <Button
               variant="ghost"
-              size="sm"
+              size="lg"
               onClick={logout}
               className="text-zinc-400 hover:text-white hover:bg-zinc-800"
             >

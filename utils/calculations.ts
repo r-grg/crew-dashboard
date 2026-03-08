@@ -151,3 +151,19 @@ export function formatDate(dateString: string): string {
     year: "numeric",
   })
 }
+
+export function formatDateRange(start: string, end: string | null | undefined): string {
+  if (!end || end === start) return formatDate(start)
+  const s = new Date(start)
+  const e = new Date(end)
+  // Same month & year: "3 – 5 Jan 2025"
+  if (s.getMonth() === e.getMonth() && s.getFullYear() === e.getFullYear()) {
+    return `${s.getDate()} – ${e.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}`
+  }
+  // Same year: "28 Dec – 2 Jan 2025"
+  if (s.getFullYear() === e.getFullYear()) {
+    return `${s.toLocaleDateString("en-GB", { day: "numeric", month: "short" })} – ${e.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}`
+  }
+  // Different years
+  return `${formatDate(start)} – ${formatDate(end)}`
+}

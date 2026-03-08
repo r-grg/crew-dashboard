@@ -3,9 +3,22 @@
 import { useAuth } from "@/context/auth-context"
 import { Navigation } from "@/components/navigation"
 import { Spinner } from "@/components/ui/spinner"
+import { useEffect } from "react"
+import { useRouter, usePathname } from "next/navigation"
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const { role, isLoading } = useAuth()
+  const router = useRouter()
+  const pathname = usePathname()
+
+  const isPublicPage = pathname === "/login"
+
+  useEffect(() => {
+    if (isLoading) return
+    if (!role && !isPublicPage) {
+      router.replace("/login")
+    }
+  }, [role, isLoading, isPublicPage, router])
 
   if (isLoading) {
     return (

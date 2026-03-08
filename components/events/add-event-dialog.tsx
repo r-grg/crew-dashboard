@@ -33,6 +33,7 @@ export function AddEventDialog() {
   const [category, setCategory] = useState<EventCategory>("paid")
   const [eventName, setEventName] = useState("")
   const [date, setDate] = useState("")
+  const [endDate, setEndDate] = useState("")
   const [type, setType] = useState<PaidType | CompetitionType>("workshop")
   const [amount, setAmount] = useState("")
   const [selectedParticipants, setSelectedParticipants] = useState<string[]>([])
@@ -62,6 +63,7 @@ export function AddEventDialog() {
       if (category === "paid") {
         await addWorkshopShow({
           date,
+          endDate: endDate || null,
           event: eventName.trim(),
           type: type as PaidType,
           amountPerPerson: Number(amount) || 0,
@@ -70,6 +72,7 @@ export function AddEventDialog() {
       } else {
         await addInviteBattle({
           date,
+          endDate: endDate || null,
           event: eventName.trim(),
           type: type as CompetitionType,
           participants: selectedParticipants,
@@ -78,6 +81,7 @@ export function AddEventDialog() {
       // Reset form
       setEventName("")
       setDate("")
+      setEndDate("")
       setType("workshop")
       setAmount("")
       setSelectedParticipants([])
@@ -137,14 +141,29 @@ export function AddEventDialog() {
               />
             </div>
 
-            <div className="space-y-2">
-              <Label className="text-zinc-300">Date</Label>
-              <Input
-                type="date"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-                className="bg-zinc-800 border-zinc-700 text-white"
-              />
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label className="text-zinc-300">Start Date</Label>
+                <Input
+                  type="date"
+                  value={date}
+                  onChange={(e) => setDate(e.target.value)}
+                  className="bg-zinc-800 border-zinc-700 text-white"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-zinc-300">
+                  End Date{" "}
+                  <span className="text-zinc-500 font-normal">(optional)</span>
+                </Label>
+                <Input
+                  type="date"
+                  value={endDate}
+                  min={date || undefined}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  className="bg-zinc-800 border-zinc-700 text-white"
+                />
+              </div>
             </div>
 
             <div className="space-y-2">
@@ -196,7 +215,7 @@ export function AddEventDialog() {
             <div className="space-y-2">
               <Label className="text-zinc-300">Participants</Label>
               <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto p-2 bg-zinc-800 rounded-md border border-zinc-700">
-                {members.map((member) => (
+                {members.filter((m) => m.active).map((member) => (
                   <div key={member.id} className="flex items-center space-x-2">
                     <Checkbox
                       id={`participant-${member.id}`}

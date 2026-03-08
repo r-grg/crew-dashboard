@@ -49,28 +49,28 @@ export default function LoginPage() {
           <h1 className="text-4xl font-bold text-white tracking-tight">
             Crew Dashboard
           </h1>
-          <p className="text-zinc-400">Beheersysteem voor de breaking crew</p>
+          <p className="text-zinc-400">Crew Booking & Event Tracker</p>
         </div>
 
         <Card className="bg-zinc-900 border-zinc-800">
           <CardHeader className="text-center">
-            <CardTitle className="text-xl text-white">Welkom terug</CardTitle>
+            <CardTitle className="text-xl text-white">Welcome back</CardTitle>
             <CardDescription className="text-zinc-400">
-              Meld je aan om toegang te krijgen tot het crew dashboard
+              Sign in to access the crew dashboard
             </CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="email" className="text-zinc-300">
-                  E-mailadres
+                  Email address
                 </Label>
                 <Input
                   id="email"
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="jij@example.com"
+                  placeholder="you@example.com"
                   required
                   autoComplete="email"
                   className="bg-zinc-800 border-zinc-700 text-white placeholder:text-zinc-500"
@@ -79,7 +79,7 @@ export default function LoginPage() {
 
               <div className="space-y-2">
                 <Label htmlFor="password" className="text-zinc-300">
-                  Wachtwoord
+                  Password
                 </Label>
                 <Input
                   id="password"
@@ -105,15 +105,11 @@ export default function LoginPage() {
                 className="w-full h-12 bg-emerald-600 hover:bg-emerald-700 text-white font-medium"
                 disabled={isLoading}
               >
-                {isLoading ? "Bezig met aanmelden…" : "Aanmelden"}
+                {isLoading ? "Signing in…" : "Sign in"}
               </Button>
             </form>
           </CardContent>
         </Card>
-
-        <p className="text-center text-xs text-zinc-500">
-          Neem contact op met je beheerder om toegang te krijgen.
-        </p>
       </div>
     </div>
   )

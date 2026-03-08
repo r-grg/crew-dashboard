@@ -20,7 +20,6 @@ const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/members", label: "Members", icon: Users },
   { href: "/events", label: "Events", icon: Calendar },
-  // { href: "/rankings", label: "Rankings", icon: Trophy },
 ]
 
 export function Navigation() {

@@ -2,31 +2,22 @@
 
 import { useState } from "react"
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { YearFilter } from "@/components/ui/year-filter"
+import { TablePagination } from "@/components/ui/table-pagination"
 import { useData } from "@/context/data-context"
 import { useAuth } from "@/context/auth-context"
 import { useEventYears, filterByYear } from "@/hooks/use-year-filter"
-import { formatDate, formatDateRange } from "@/utils/calculations"
+import { usePagination } from "@/hooks/use-pagination"
+import { formatDateRange } from "@/utils/calculations"
 import { EditEventDialog } from "./edit-event-dialog"
 import type { InviteBattle } from "@/context/data-context"
 import { Pencil, Trash2 } from "lucide-react"
@@ -44,15 +35,12 @@ export function BattlesTable() {
 
   const years = useEventYears(workshopsAndShows, invitesAndBattles)
 
-  const filtered = filterByYear(invitesAndBattles, selectedYear)
-  const sortedEvents = [...filtered].sort(
+  const sortedEvents = [...filterByYear(invitesAndBattles, selectedYear)].sort(
     (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
   )
 
-  const handleEdit = (event: InviteBattle) => {
-    setEditingEvent(event)
-    setEditOpen(true)
-  }
+  const { paginatedItems, page, totalPages, totalItems, pageSize, nextPage, prevPage, goToPage } =
+    usePagination(sortedEvents, 10)
 
   const handleDeleteConfirm = async () => {
     if (!deletingId) return
@@ -84,31 +72,22 @@ export function BattlesTable() {
                   <TableHead className="text-zinc-400">Event</TableHead>
                   <TableHead className="text-zinc-400">Type</TableHead>
                   <TableHead className="text-zinc-400">Participants</TableHead>
-                  {isAdmin && (
-                    <TableHead className="text-zinc-400 text-right">Actions</TableHead>
-                  )}
+                  {isAdmin && <TableHead className="text-zinc-400 text-right">Actions</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {sortedEvents.map((event) => (
-                  <TableRow
-                    key={event.id}
-                    className="border-zinc-800 hover:bg-zinc-800/50"
-                  >
+                {paginatedItems.map((event) => (
+                  <TableRow key={event.id} className="border-zinc-800 hover:bg-zinc-800/50">
                     <TableCell className="text-zinc-300 whitespace-nowrap">
                       {formatDateRange(event.date, event.endDate)}
                     </TableCell>
-                    <TableCell className="font-medium text-white">
-                      {event.event}
-                    </TableCell>
+                    <TableCell className="font-medium text-white">{event.event}</TableCell>
                     <TableCell>
                       <Badge
                         variant="outline"
-                        className={
-                          event.type === "battle"
-                            ? "bg-rose-950 text-rose-400 border-rose-800"
-                            : "bg-amber-950 text-amber-400 border-amber-800"
-                        }
+                        className={event.type === "battle"
+                          ? "bg-rose-950 text-rose-400 border-rose-800"
+                          : "bg-amber-950 text-amber-400 border-amber-800"}
                       >
                         {event.type}
                       </Badge>
@@ -116,11 +95,7 @@ export function BattlesTable() {
                     <TableCell>
                       <div className="flex flex-wrap gap-1">
                         {event.participants.map((p) => (
-                          <Badge
-                            key={p}
-                            variant="outline"
-                            className="bg-zinc-800 text-zinc-300 border-zinc-700 text-xs"
-                          >
+                          <Badge key={p} variant="outline" className="bg-zinc-800 text-zinc-300 border-zinc-700 text-xs">
                             {p}
                           </Badge>
                         ))}
@@ -130,17 +105,15 @@ export function BattlesTable() {
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-1">
                           <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleEdit(event)}
+                            variant="ghost" size="sm"
+                            onClick={() => { setEditingEvent(event); setEditOpen(true) }}
                             className="text-zinc-400 hover:text-white hover:bg-zinc-800 h-8 w-8 p-0"
                           >
                             <Pencil className="h-3.5 w-3.5" />
                             <span className="sr-only">Edit</span>
                           </Button>
                           <Button
-                            variant="ghost"
-                            size="sm"
+                            variant="ghost" size="sm"
                             onClick={() => setDeletingId(event.id)}
                             className="text-zinc-400 hover:text-red-400 hover:bg-red-950/30 h-8 w-8 p-0"
                           >
@@ -152,12 +125,9 @@ export function BattlesTable() {
                     )}
                   </TableRow>
                 ))}
-                {sortedEvents.length === 0 && (
+                {paginatedItems.length === 0 && (
                   <TableRow>
-                    <TableCell
-                      colSpan={isAdmin ? 5 : 4}
-                      className="h-24 text-center text-zinc-500"
-                    >
+                    <TableCell colSpan={isAdmin ? 5 : 4} className="h-24 text-center text-zinc-500">
                       No invites or battles found.
                     </TableCell>
                   </TableRow>
@@ -165,33 +135,28 @@ export function BattlesTable() {
               </TableBody>
             </Table>
           </div>
+          <TablePagination
+            page={page} totalPages={totalPages} totalItems={totalItems}
+            pageSize={pageSize} onNext={nextPage} onPrev={prevPage} onGoTo={goToPage}
+          />
         </CardContent>
       </Card>
 
       <EditEventDialog
         event={editingEvent}
         open={editOpen}
-        onOpenChange={(open) => {
-          setEditOpen(open)
-          if (!open) setEditingEvent(null)
-        }}
+        onOpenChange={(open) => { setEditOpen(open); if (!open) setEditingEvent(null) }}
       />
 
       <AlertDialog
         open={!!deletingId}
-        onOpenChange={(open) => {
-          if (!open) {
-            setDeletingId(null)
-            setDeleteError(null)
-          }
-        }}
+        onOpenChange={(open) => { if (!open) { setDeletingId(null); setDeleteError(null) } }}
       >
         <AlertDialogContent className="bg-zinc-900 border-zinc-800">
           <AlertDialogHeader>
             <AlertDialogTitle className="text-white">Delete Event</AlertDialogTitle>
             <AlertDialogDescription className="text-zinc-400">
-              This will permanently delete the event and all its participant records.
-              This action cannot be undone.
+              This will permanently delete the event and all its participant records. This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           {deleteError && (

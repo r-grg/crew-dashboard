@@ -9,9 +9,9 @@ const _geist = Geist({ subsets: ["latin"] })
 const _geistMono = Geist_Mono({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "Crew Dashboard - Breaking Crew Management",
+  title: "Crew Dashboard - BD",
   description:
-    "Track earnings, events, battles, and member rankings for your breaking crew",
+    "Track earnings, events and battles for your BD crew",
   icons: {
     icon: [
       {

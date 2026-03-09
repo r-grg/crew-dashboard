@@ -3,31 +3,21 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { useData } from "@/context/data-context"
 import { calculateMemberStats, getParticipationChartData } from "@/utils/calculations"
+import { filterByYear } from "@/hooks/use-year-filter"
 import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  Cell,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
 } from "recharts"
 
 const COLORS = [
-  "#10b981",
-  "#14b8a6",
-  "#22d3d1",
-  "#0ea5e9",
-  "#3b82f6",
-  "#6366f1",
-  "#8b5cf6",
-  "#a855f7",
+  "#10b981", "#14b8a6", "#22d3d1", "#0ea5e9",
+  "#3b82f6", "#6366f1", "#8b5cf6", "#a855f7",
 ]
 
-export function ParticipationChart() {
+export function ParticipationChart({ selectedYear }: { selectedYear: string }) {
   const { members, workshopsAndShows, invitesAndBattles } = useData()
-  const stats = calculateMemberStats(members, workshopsAndShows, invitesAndBattles)
+  const filteredWorkshops = filterByYear(workshopsAndShows, selectedYear)
+  const filteredBattles = filterByYear(invitesAndBattles, selectedYear)
+  const stats = calculateMemberStats(members, filteredWorkshops, filteredBattles)
   const chartData = getParticipationChartData(stats)
 
   return (
@@ -41,11 +31,7 @@ export function ParticipationChart() {
       <CardContent>
         <div className="h-75 w-full">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart
-              data={chartData}
-              layout="vertical"
-              margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
-            >
+            <BarChart data={chartData} layout="vertical" margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#27272a" horizontal={false} />
               <XAxis
                 type="number"
@@ -62,14 +48,11 @@ export function ParticipationChart() {
                 width={70}
               />
               <Tooltip
-                contentStyle={{
-                  backgroundColor: "#18181b",
-                  border: "1px solid #27272a",
-                  borderRadius: "8px",
-                }}
+                contentStyle={{ backgroundColor: "#18181b", border: "1px solid #27272a", borderRadius: "8px" }}
                 labelStyle={{ color: "#ffffff" }}
                 itemStyle={{ color: "#a1a1aa" }}
-                formatter={(value) => [`${value ?? 0} events`, "Participation"]}              />
+                formatter={(value) => [`${value ?? 0} events`, "Participation"]}
+              />
               <Bar dataKey="events" radius={[0, 4, 4, 0]}>
                 {chartData.map((_, index) => (
                   <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />

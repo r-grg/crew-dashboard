@@ -214,7 +214,7 @@ export function AddEventDialog() {
 
             <div className="space-y-2">
               <Label className="text-zinc-300">Participants</Label>
-              <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto p-2 bg-zinc-800 rounded-md border border-zinc-700">
+              <div className="grid grid-cols-2 gap-2 max-h-60 overflow-y-auto p-2 bg-zinc-800 rounded-md border border-zinc-700">
                 {members.filter((m) => m.active).map((member) => (
                   <div key={member.id} className="flex items-center space-x-2">
                     <Checkbox

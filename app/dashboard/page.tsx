@@ -5,6 +5,9 @@ import { KpiCards } from "@/components/dashboard/kpi-cards"
 import { YearFilter } from "@/components/ui/year-filter"
 import { useData } from "@/context/data-context"
 import { useEventYears } from "@/hooks/use-year-filter"
+import { RecentEvents } from "@/components/dashboard/recent-events"
+import { ParticipationChart } from "@/components/dashboard/participation-chart"
+
 
 export default function DashboardPage() {
   const { workshopsAndShows, invitesAndBattles } = useData()
@@ -22,6 +25,12 @@ export default function DashboardPage() {
       </div>
 
       <KpiCards selectedYear={selectedYear} />
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        <ParticipationChart selectedYear={selectedYear} />
+        <RecentEvents/>
+      </div>
+
     </div>
   )
 }

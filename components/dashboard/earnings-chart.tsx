@@ -3,20 +3,15 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { useData } from "@/context/data-context"
 import { getEarningsChartData } from "@/utils/calculations"
+import { filterByYear } from "@/hooks/use-year-filter"
 import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  Legend,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
 } from "recharts"
 
-export function EarningsChart() {
+export function EarningsChart({ selectedYear }: { selectedYear: string }) {
   const { workshopsAndShows } = useData()
-  const chartData = getEarningsChartData(workshopsAndShows)
+  const filtered = filterByYear(workshopsAndShows, selectedYear)
+  const chartData = getEarningsChartData(filtered)
 
   return (
     <Card className="bg-zinc-900 border-zinc-800">
@@ -44,33 +39,17 @@ export function EarningsChart() {
                 tickFormatter={(value) => `€${value}`}
               />
               <Tooltip
-                contentStyle={{
-                  backgroundColor: "#18181b",
-                  border: "1px solid #27272a",
-                  borderRadius: "8px",
-                }}
+                contentStyle={{ backgroundColor: "#18181b", border: "1px solid #27272a", borderRadius: "8px" }}
                 labelStyle={{ color: "#ffffff" }}
                 itemStyle={{ color: "#a1a1aa" }}
                 formatter={(value) => [`€${value ?? 0}`, ""]}
               />
               <Legend
                 wrapperStyle={{ paddingTop: "20px" }}
-                formatter={(value) => (
-                  <span className="text-zinc-400 text-sm capitalize">{value}</span>
-                )}
+                formatter={(value) => <span className="text-zinc-400 text-sm capitalize">{value}</span>}
               />
-              <Bar
-                dataKey="workshops"
-                fill="#10b981"
-                radius={[4, 4, 0, 0]}
-                name="Workshops"
-              />
-              <Bar
-                dataKey="shows"
-                fill="#0ea5e9"
-                radius={[4, 4, 0, 0]}
-                name="Shows"
-              />
+              <Bar dataKey="workshops" fill="#10b981" radius={[4, 4, 0, 0]} name="Workshops" />
+              <Bar dataKey="shows" fill="#0ea5e9" radius={[4, 4, 0, 0]} name="Shows" />
             </BarChart>
           </ResponsiveContainer>
         </div>

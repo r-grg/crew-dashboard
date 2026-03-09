@@ -4,13 +4,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { useData } from "@/context/data-context"
 import { calculateMemberStats, formatCurrency } from "@/utils/calculations"
+import { filterByYear } from "@/hooks/use-year-filter"
 
-export function TopEarners() {
+export function TopEarners({ selectedYear }: { selectedYear: string }) {
   const { members, workshopsAndShows, invitesAndBattles } = useData()
-  const stats = calculateMemberStats(members, workshopsAndShows, invitesAndBattles)
-  const sortedByEarnings = [...stats]
-    .sort((a, b) => b.totalEarnings - a.totalEarnings)
-    .slice(0, 5)
+  const filteredWorkshops = filterByYear(workshopsAndShows, selectedYear)
+  const filteredBattles = filterByYear(invitesAndBattles, selectedYear)
+  const stats = calculateMemberStats(members, filteredWorkshops, filteredBattles)
+  const top5 = [...stats].sort((a, b) => b.totalEarnings - a.totalEarnings).slice(0, 5)
 
   return (
     <Card className="bg-zinc-900 border-zinc-800">
@@ -22,11 +23,8 @@ export function TopEarners() {
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
-          {sortedByEarnings.map((member, index) => (
-            <div
-              key={member.name}
-              className="flex items-center justify-between gap-4"
-            >
+          {top5.map((member, index) => (
+            <div key={member.name} className="flex items-center justify-between gap-4">
               <div className="flex items-center gap-3">
                 <div className="relative">
                   <Avatar className="h-10 w-10 border border-zinc-700">
@@ -35,15 +33,11 @@ export function TopEarners() {
                     </AvatarFallback>
                   </Avatar>
                   {index < 3 && (
-                    <span
-                      className={`absolute -top-1 -right-1 h-5 w-5 rounded-full flex items-center justify-center text-xs font-bold ${
-                        index === 0
-                          ? "bg-amber-500 text-amber-950"
-                          : index === 1
-                          ? "bg-zinc-300 text-zinc-800"
-                          : "bg-amber-700 text-amber-100"
-                      }`}
-                    >
+                    <span className={`absolute -top-1 -right-1 h-5 w-5 rounded-full flex items-center justify-center text-xs font-bold ${
+                      index === 0 ? "bg-amber-500 text-amber-950"
+                      : index === 1 ? "bg-zinc-300 text-zinc-800"
+                      : "bg-amber-700 text-amber-100"
+                    }`}>
                       {index + 1}
                     </span>
                   )}
@@ -55,11 +49,9 @@ export function TopEarners() {
                   </p>
                 </div>
               </div>
-              <div className="text-right">
-                <p className="text-sm font-semibold text-emerald-400">
-                  {formatCurrency(member.totalEarnings)}
-                </p>
-              </div>
+              <p className="text-sm font-semibold text-emerald-400">
+                {formatCurrency(member.totalEarnings)}
+              </p>
             </div>
           ))}
         </div>

@@ -13,21 +13,14 @@ import type { User } from "@supabase/supabase-js"
 import { createClient } from "@/lib/supabase/client"
 import type { Profile, Role } from "@/lib/types"
 
-/**
- * Session strategy: inactivity-based expiry.
- *
- * - Last activity timestamp written to localStorage on every user interaction.
- * - On app load, if elapsed time > INACTIVITY_LIMIT, user is signed out.
- * - A hard timeout of SESSION_TIMEOUT_MS caps absolute session length
- *   regardless of activity (e.g. leaving a tab open overnight).
- * - A 5s timeout on the initial session check prevents infinite spinner
- *   if Supabase is slow to respond.
- */
-const INACTIVITY_LIMIT_MS  = 4 * 60 * 60 * 1000  // 4 hours idle → logout
-const SESSION_TIMEOUT_MS   = 12 * 60 * 60 * 1000  // 12 hours absolute max
-const SESSION_START_KEY    = "bd_session_start"
-const LAST_ACTIVE_KEY      = "bd_last_active"
-const AUTH_TIMEOUT_MS      = 5_000                 // 5s before giving up on load
+const INACTIVITY_LIMIT_MS = 4 * 60 * 60 * 1000
+const SESSION_TIMEOUT_MS  = 12 * 60 * 60 * 1000
+const SESSION_START_KEY   = "bd_session_start"
+const LAST_ACTIVE_KEY     = "bd_last_active"
+const AUTH_TIMEOUT_MS     = 5_000
+
+// Module-level client — created once, never recreated on re-render
+const supabase = createClient()
 
 function recordActivity() {
   localStorage.setItem(LAST_ACTIVE_KEY, Date.now().toString())
@@ -45,16 +38,10 @@ function clearSessionKeys() {
 }
 
 function isSessionExpired(): boolean {
-  // Check inactivity
   const lastActive = localStorage.getItem(LAST_ACTIVE_KEY)
-  if (lastActive && Date.now() - Number(lastActive) > INACTIVITY_LIMIT_MS) {
-    return true
-  }
-  // Check absolute session age
+  if (lastActive && Date.now() - Number(lastActive) > INACTIVITY_LIMIT_MS) return true
   const sessionStart = localStorage.getItem(SESSION_START_KEY)
-  if (sessionStart && Date.now() - Number(sessionStart) > SESSION_TIMEOUT_MS) {
-    return true
-  }
+  if (sessionStart && Date.now() - Number(sessionStart) > SESSION_TIMEOUT_MS) return true
   return false
 }
 
@@ -70,29 +57,27 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const supabase = createClient()
   const [user, setUser] = useState<User | null>(null)
   const [profile, setProfile] = useState<Profile | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const activityBound = useRef(false)
+  const initialised = useRef(false)
 
-  const fetchProfile = useCallback(
-    async (userId: string) => {
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", userId)
-        .single()
-      if (error) return null
-      return data as Profile
-    },
-    [supabase]
-  )
+  const fetchProfile = useCallback(async (userId: string): Promise<Profile | null> => {
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("id", userId)
+      .single()
+    if (error) return null
+    return data as Profile
+  }, []) // supabase is stable — no deps needed
 
   const logout = useCallback(async () => {
+    setIsLoading(true)
     clearSessionKeys()
     await supabase.auth.signOut()
-  }, [supabase])
+  }, [])
 
   // Bind global activity listeners once
   useEffect(() => {
@@ -107,40 +92,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let cancelled = false
 
-    // Safety net: never spin forever — resolve after 5s regardless
     const timeoutId = setTimeout(() => {
-      if (!cancelled) setIsLoading(false)
+      if (!cancelled && !initialised.current) {
+        initialised.current = true
+        setIsLoading(false)
+      }
     }, AUTH_TIMEOUT_MS)
 
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (cancelled) return
 
       if (session?.user) {
         if (isSessionExpired()) {
           clearSessionKeys()
           await supabase.auth.signOut()
-          setUser(null)
-          setProfile(null)
-        } else {
-          initSessionStart()
-          recordActivity()
-          setUser(session.user)
-          const p = await fetchProfile(session.user.id)
-          if (!cancelled) setProfile(p)
+          return
         }
-      }
-
-      if (!cancelled) {
-        clearTimeout(timeoutId)
-        setIsLoading(false)
-      }
-    })
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (cancelled) return
-      if (session?.user) {
         initSessionStart()
         recordActivity()
         setUser(session.user)
@@ -150,8 +119,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(null)
         setProfile(null)
       }
-      clearTimeout(timeoutId)
-      setIsLoading(false)
+
+      if (!cancelled) {
+        clearTimeout(timeoutId)
+        initialised.current = true
+        setIsLoading(false)
+      }
     })
 
     return () => {
@@ -159,7 +132,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       clearTimeout(timeoutId)
       subscription.unsubscribe()
     }
-  }, [supabase, fetchProfile])
+  }, [fetchProfile]) // fetchProfile is now stable too
 
   const role = profile?.role ?? null
   const isAdmin = role === "admin"

@@ -1,13 +1,29 @@
 "use client"
 
+import { useState } from "react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { WorkshopsTable } from "@/components/events/workshops-table"
 import { BattlesTable } from "@/components/events/battles-table"
 import { AddEventDialog } from "@/components/events/add-event-dialog"
+import { YearFilter } from "@/components/ui/year-filter"
 import { useAuth } from "@/context/auth-context"
+import { useData } from "@/context/data-context"
+import { useEventYears } from "@/hooks/use-year-filter"
+import { Spinner } from "@/components/ui/spinner"
 
 export default function EventsPage() {
   const { isAdmin } = useAuth()
+  const { workshopsAndShows, invitesAndBattles, isLoading } = useData()
+  const years = useEventYears(workshopsAndShows, invitesAndBattles)
+  const [selectedYear, setSelectedYear] = useState("all")
+
+  if (isLoading) {
+    return (
+      <div className="min-h-[60vh] flex items-center justify-center">
+        <Spinner className="h-8 w-8 text-emerald-500" />
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -16,7 +32,9 @@ export default function EventsPage() {
           <h1 className="text-2xl font-bold text-white">Events</h1>
           <p className="mt-1 text-zinc-400">Track all crew events and activities</p>
         </div>
-        {isAdmin && <AddEventDialog />}
+        <div className="flex items-center gap-3">
+          {isAdmin && <AddEventDialog />}
+        </div>
       </div>
 
       <Tabs defaultValue="workshops" className="block w-full">

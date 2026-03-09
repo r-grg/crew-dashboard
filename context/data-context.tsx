@@ -58,8 +58,10 @@ interface DataContextValue {
 
 const DataContext = createContext<DataContextValue | undefined>(undefined)
 
+// Module-level client — created once, never recreated on re-render
+const supabase = createClient()
+
 export function DataProvider({ children }: { children: ReactNode }) {
-  const supabase = createClient()
   const { user } = useAuth()
 
   const [members, setMembers] = useState<Member[]>([])
@@ -144,7 +146,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsLoading(false)
     }
-  }, [supabase, user])
+  }, [user])
 
   useEffect(() => {
     fetchData()
@@ -171,7 +173,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         if (insError) throw insError
       }
     },
-    [supabase]
+    []
   )
 
   // ── Admin mutations ────────────────────────────────────────
@@ -187,7 +189,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       if (!data) throw new Error("Insert blocked — check that your account has the admin role in Supabase.")
       await fetchData()
     },
-    [supabase, fetchData]
+    [fetchData]
   )
 
   const addWorkshopShow = useCallback(
@@ -229,7 +231,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
       await fetchData()
     },
-    [supabase, fetchData]
+    [fetchData]
   )
 
   const addInviteBattle = useCallback(
@@ -271,7 +273,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
       await fetchData()
     },
-    [supabase, fetchData]
+    [fetchData]
   )
 
   const updateWorkshopShow = useCallback(
@@ -292,7 +294,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       await replaceParticipants(payload.id, payload.participant_ids)
       await fetchData()
     },
-    [supabase, fetchData, replaceParticipants]
+    [fetchData, replaceParticipants]
   )
 
   const updateInviteBattle = useCallback(
@@ -313,7 +315,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       await replaceParticipants(payload.id, payload.participant_ids)
       await fetchData()
     },
-    [supabase, fetchData, replaceParticipants]
+    [fetchData, replaceParticipants]
   )
 
   const deleteEvent = useCallback(
@@ -333,7 +335,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
       await fetchData()
     },
-    [supabase, fetchData]
+    [fetchData]
   )
 
   const updateMember = useCallback(
@@ -345,7 +347,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       if (error) throw error
       await fetchData()
     },
-    [supabase, fetchData]
+    [fetchData]
   )
 
   const setMemberActive = useCallback(
@@ -357,7 +359,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       if (error) throw error
       await fetchData()
     },
-    [supabase, fetchData]
+    [fetchData]
   )
 
   return (

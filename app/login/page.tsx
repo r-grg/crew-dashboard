@@ -1,26 +1,44 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
+import { useAuth } from "@/context/auth-context"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Spinner } from "@/components/ui/spinner"
 import { Shield } from "lucide-react"
 
 export default function LoginPage() {
   const router = useRouter()
   const supabase = createClient()
+  const { role, isLoading } = useAuth()
+
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState<string | null>(null)
-  const [isLoading, setIsLoading] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [waitingForRedirect, setWaitingForRedirect] = useState(false)
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  useEffect(() => {
+    if (isLoading) return
+
+    if (role) {
+      router.replace("/dashboard")
+      return
+    }
+
+    // auth finished, but no role found -> stop waiting
+    setWaitingForRedirect(false)
+  }, [role, isLoading, router])
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     setError(null)
-    setIsLoading(true)
+    setIsSubmitting(true)
+    setWaitingForRedirect(false)
 
     const { error: signInError } = await supabase.auth.signInWithPassword({
       email,
@@ -29,12 +47,22 @@ export default function LoginPage() {
 
     if (signInError) {
       setError(signInError.message)
-      setIsLoading(false)
+      setIsSubmitting(false)
+      setWaitingForRedirect(false)
       return
     }
 
-    router.push("/dashboard")
-    router.refresh()
+    // Sign-in succeeded, now wait for auth context to update + redirect
+    setIsSubmitting(false)
+    setWaitingForRedirect(true)
+  }
+
+  if (isLoading || isSubmitting || waitingForRedirect || role) {
+    return (
+      <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
+        <Spinner className="h-8 w-8 text-emerald-500" />
+      </div>
+    )
   }
 
   return (
@@ -103,9 +131,9 @@ export default function LoginPage() {
                 type="submit"
                 size="lg"
                 className="w-full h-12 bg-emerald-600 hover:bg-emerald-700 text-white font-medium"
-                disabled={isLoading}
+                disabled={isSubmitting}
               >
-                {isLoading ? "Signing in…" : "Sign in"}
+                {isSubmitting ? "Signing in…" : "Sign in"}
               </Button>
             </form>
           </CardContent>

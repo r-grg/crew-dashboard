@@ -3,9 +3,20 @@
 import { MembersTable } from "@/components/members/members-table"
 import { AddMemberDialog } from "@/components/members/add-member-dialog"
 import { useAuth } from "@/context/auth-context"
+import { useData } from "@/context/data-context"
+import { Spinner } from "@/components/ui/spinner"
 
 export default function MembersPage() {
   const { isAdmin } = useAuth()
+  const { isLoading } = useData()
+
+  if (isLoading) {
+    return (
+      <div className="min-h-[60vh] flex items-center justify-center">
+        <Spinner className="h-8 w-8 text-emerald-500" />
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">

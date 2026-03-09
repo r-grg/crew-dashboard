@@ -3,6 +3,7 @@
 import { useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/context/auth-context"
+import { Spinner } from "@/components/ui/spinner"
 
 export default function HomePage() {
   const router = useRouter()
@@ -17,5 +18,9 @@ export default function HomePage() {
     }
   }, [role, isLoading, router])
 
-  return null
+  return (
+    <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
+      <Spinner className="h-8 w-8 text-emerald-500" />
+    </div>
+  )
 }

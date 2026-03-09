@@ -7,12 +7,20 @@ import { useData } from "@/context/data-context"
 import { useEventYears } from "@/hooks/use-year-filter"
 import { RecentEvents } from "@/components/dashboard/recent-events"
 import { ParticipationChart } from "@/components/dashboard/participation-chart"
-
+import { Spinner } from "@/components/ui/spinner"
 
 export default function DashboardPage() {
-  const { workshopsAndShows, invitesAndBattles } = useData()
+  const { workshopsAndShows, invitesAndBattles, isLoading } = useData()
   const years = useEventYears(workshopsAndShows, invitesAndBattles)
   const [selectedYear, setSelectedYear] = useState("all")
+
+  if (isLoading) {
+    return (
+      <div className="min-h-[60vh] flex items-center justify-center">
+        <Spinner className="h-8 w-8 text-emerald-500" />
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -28,9 +36,8 @@ export default function DashboardPage() {
 
       <div className="grid gap-6 lg:grid-cols-2">
         <ParticipationChart selectedYear={selectedYear} />
-        <RecentEvents/>
+        <RecentEvents />
       </div>
-
     </div>
   )
 }

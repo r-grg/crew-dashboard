@@ -140,8 +140,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
       setWorkshopsAndShows(workshops)
       setInvitesAndBattles(battles)
-    } catch (err) {
-      console.error("Error fetching data:", err)
+    } catch {
     } finally {
       setIsLoading(false)
     }
@@ -179,10 +178,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const addMember = useCallback(
     async (name: string) => {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from("members")
         .insert({ name, active: true })
-      if (error) throw error
+        .select()
+        .single()
+      if (error) throw new Error(error.message)
+      if (!data) throw new Error("Insert blocked — check that your account has the admin role in Supabase.")
       await fetchData()
     },
     [supabase, fetchData]

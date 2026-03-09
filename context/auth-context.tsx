@@ -14,39 +14,48 @@ import { createClient } from "@/lib/supabase/client"
 import type { Profile, Role } from "@/lib/types"
 
 /**
- * Session strategy:
+ * Session strategy: inactivity-based expiry.
  *
- * Supabase's default `persistSession: true` stores tokens in localStorage,
- * meaning they survive browser close and feel effectively permanent — which
- * the owner does not want.
- *
- * True "close browser = logout" is unreliable in modern browsers because
- * they restore sessions and tabs, making sessionStorage equally persistent.
- *
- * The chosen approach: inactivity-based session expiry.
- *   - The session token is kept in localStorage (Supabase default) so normal
- *     page refreshes and navigation do NOT require re-login.
- *   - A "last active" timestamp is written to localStorage on every user
- *     interaction (mouse, keyboard, touch).
- *   - On app load, if the elapsed time since last activity exceeds the
- *     INACTIVITY_LIMIT, the user is signed out automatically.
- *   - This gives a reasonable security boundary without constant re-logins.
- *
- * INACTIVITY_LIMIT: 8 hours — covers a full work day comfortably; after
- * a night away the session is expired.
+ * - Last activity timestamp written to localStorage on every user interaction.
+ * - On app load, if elapsed time > INACTIVITY_LIMIT, user is signed out.
+ * - A hard timeout of SESSION_TIMEOUT_MS caps absolute session length
+ *   regardless of activity (e.g. leaving a tab open overnight).
+ * - A 5s timeout on the initial session check prevents infinite spinner
+ *   if Supabase is slow to respond.
  */
-const INACTIVITY_LIMIT_MS = 8 * 60 * 60 * 1000 // 8 hours
-const LAST_ACTIVE_KEY = "bd_last_active"
+const INACTIVITY_LIMIT_MS  = 4 * 60 * 60 * 1000  // 4 hours idle → logout
+const SESSION_TIMEOUT_MS   = 12 * 60 * 60 * 1000  // 12 hours absolute max
+const SESSION_START_KEY    = "bd_session_start"
+const LAST_ACTIVE_KEY      = "bd_last_active"
+const AUTH_TIMEOUT_MS      = 5_000                 // 5s before giving up on load
 
 function recordActivity() {
   localStorage.setItem(LAST_ACTIVE_KEY, Date.now().toString())
 }
 
-function isSessionExpiredByInactivity(): boolean {
-  const raw = localStorage.getItem(LAST_ACTIVE_KEY)
-  if (!raw) return false // no record = fresh login, allow
-  const elapsed = Date.now() - Number(raw)
-  return elapsed > INACTIVITY_LIMIT_MS
+function initSessionStart() {
+  if (!localStorage.getItem(SESSION_START_KEY)) {
+    localStorage.setItem(SESSION_START_KEY, Date.now().toString())
+  }
+}
+
+function clearSessionKeys() {
+  localStorage.removeItem(LAST_ACTIVE_KEY)
+  localStorage.removeItem(SESSION_START_KEY)
+}
+
+function isSessionExpired(): boolean {
+  // Check inactivity
+  const lastActive = localStorage.getItem(LAST_ACTIVE_KEY)
+  if (lastActive && Date.now() - Number(lastActive) > INACTIVITY_LIMIT_MS) {
+    return true
+  }
+  // Check absolute session age
+  const sessionStart = localStorage.getItem(SESSION_START_KEY)
+  if (sessionStart && Date.now() - Number(sessionStart) > SESSION_TIMEOUT_MS) {
+    return true
+  }
+  return false
 }
 
 interface AuthContextValue {
@@ -74,18 +83,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .select("*")
         .eq("id", userId)
         .single()
-
-      if (error) {
-        console.error("Error fetching profile:", error)
-        return null
-      }
+      if (error) return null
       return data as Profile
     },
     [supabase]
   )
 
   const logout = useCallback(async () => {
-    localStorage.removeItem(LAST_ACTIVE_KEY)
+    clearSessionKeys()
     await supabase.auth.signOut()
   }, [supabase])
 
@@ -93,64 +98,74 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (activityBound.current) return
     activityBound.current = true
-
     const events = ["mousemove", "keydown", "pointerdown", "touchstart", "scroll"]
     const handler = () => recordActivity()
     events.forEach((ev) => window.addEventListener(ev, handler, { passive: true }))
-
-    return () => {
-      events.forEach((ev) => window.removeEventListener(ev, handler))
-    }
+    return () => events.forEach((ev) => window.removeEventListener(ev, handler))
   }, [])
 
   useEffect(() => {
-    // Get initial session
+    let cancelled = false
+
+    // Safety net: never spin forever — resolve after 5s regardless
+    const timeoutId = setTimeout(() => {
+      if (!cancelled) setIsLoading(false)
+    }, AUTH_TIMEOUT_MS)
+
     supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (cancelled) return
+
       if (session?.user) {
-        // Check inactivity before restoring session
-        if (isSessionExpiredByInactivity()) {
+        if (isSessionExpired()) {
+          clearSessionKeys()
           await supabase.auth.signOut()
-          localStorage.removeItem(LAST_ACTIVE_KEY)
           setUser(null)
           setProfile(null)
         } else {
+          initSessionStart()
           recordActivity()
           setUser(session.user)
           const p = await fetchProfile(session.user.id)
-          setProfile(p)
+          if (!cancelled) setProfile(p)
         }
       }
-      setIsLoading(false)
+
+      if (!cancelled) {
+        clearTimeout(timeoutId)
+        setIsLoading(false)
+      }
     })
 
-    // Listen for auth state changes
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (cancelled) return
       if (session?.user) {
+        initSessionStart()
         recordActivity()
         setUser(session.user)
         const p = await fetchProfile(session.user.id)
-        setProfile(p)
+        if (!cancelled) setProfile(p)
       } else {
         setUser(null)
         setProfile(null)
       }
+      clearTimeout(timeoutId)
       setIsLoading(false)
     })
 
     return () => {
+      cancelled = true
+      clearTimeout(timeoutId)
       subscription.unsubscribe()
     }
-  }, [supabase, fetchProfile, logout])
+  }, [supabase, fetchProfile])
 
   const role = profile?.role ?? null
   const isAdmin = role === "admin"
 
   return (
-    <AuthContext.Provider
-      value={{ user, profile, role, isAdmin, isLoading, logout }}
-    >
+    <AuthContext.Provider value={{ user, profile, role, isAdmin, isLoading, logout }}>
       {children}
     </AuthContext.Provider>
   )

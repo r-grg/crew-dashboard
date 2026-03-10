@@ -104,6 +104,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (cancelled) return
 
+      // Don't re-run full auth flow for background token refreshes
+      if (event === "TOKEN_REFRESHED") {
+        if (!initialised.current) {
+          initialised.current = true
+          setIsLoading(false)
+        }
+        return
+      }
+
       if (session?.user) {
         if (isSessionExpired()) {
           clearSessionKeys()

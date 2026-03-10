@@ -6,6 +6,7 @@ import {
   useEffect,
   useState,
   useCallback,
+  useRef,
   type ReactNode,
 } from "react"
 import { createClient } from "@/lib/supabase/client"
@@ -68,14 +69,19 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [workshopsAndShows, setWorkshopsAndShows] = useState<WorkshopShow[]>([])
   const [invitesAndBattles, setInvitesAndBattles] = useState<InviteBattle[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const initialised = useRef(false)
+
+  const userId = user?.id ?? null
 
   const fetchData = useCallback(async () => {
-    if (!user) {
+    if (!userId) {
       setIsLoading(false)
+      initialised.current = true
       return
     }
 
-    setIsLoading(true)
+    // Only show spinner on first load, not background refetches
+    if (!initialised.current) setIsLoading(true)
 
     try {
       // Fetch all members (including inactive — historical records must remain intact)
@@ -144,9 +150,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
       setInvitesAndBattles(battles)
     } catch {
     } finally {
+      initialised.current = true
       setIsLoading(false)
     }
-  }, [user])
+  }, [userId])
 
   useEffect(() => {
     fetchData()

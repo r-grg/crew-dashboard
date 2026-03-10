@@ -63,6 +63,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const activityBound = useRef(false)
   const initialised = useRef(false)
 
+  // NOTE: fetchProfile does NOT use the supabase auth client — it only queries
+  // the `profiles` table via the data API. This is safe to call outside the
+  // onAuthStateChange lock context, but we still defer it with setTimeout to
+  // guarantee we do NOT call it while the auth lock is held (see below).
   const fetchProfile = useCallback(async (userId: string): Promise<Profile | null> => {
     const { data, error } = await supabase
       .from("profiles")
@@ -71,12 +75,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .single()
     if (error) return null
     return data as Profile
-  }, []) // supabase is stable — no deps needed
+  }, [])
 
   const logout = useCallback(async () => {
     clearSessionKeys()
     setUser(null)
     setProfile(null)
+    // signOut acquires the auth lock internally; calling it outside the
+    // onAuthStateChange callback (where the lock is already held) is safe.
     await supabase.auth.signOut()
   }, [])
 
@@ -102,19 +108,43 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      // ─────────────────────────────────────────────────────────────────────
+      // CRITICAL: This callback is called *synchronously* while the Supabase
+      // GoTrueClient holds its internal Web Locks API mutex
+      // (navigator.locks "lock:sb-<project>-auth-token").
+      //
+      // Any `await` on another Supabase method inside this callback will
+      // deadlock Chrome/Brave indefinitely because:
+      //   1. The auth lock is held by the current call.
+      //   2. Any supabase.auth.* method (signOut, getSession, etc.) tries to
+      //      acquire the same exclusive lock.
+      //   3. navigator.locks queues the new request behind the held lock.
+      //   4. The held lock can never release because it is waiting for the
+      //      callback to finish.
+      //   5. The callback can never finish because it is awaiting step 2.
+      //
+      // Firefox is less affected because it falls back to a no-op lock
+      // implementation in some builds, masking the bug.
+      //
+      // FIX: Use setTimeout(async () => { ... }, 0) to defer any Supabase
+      // calls (including fetchProfile which hits the database) until *after*
+      // the callback has returned and the auth lock is released.
+      // ─────────────────────────────────────────────────────────────────────
+
       if (cancelled) return
 
       // Background token refresh — no UI change needed
       if (event === "TOKEN_REFRESHED") {
         if (!initialised.current) {
           initialised.current = true
+          clearTimeout(timeoutId)
           setIsLoading(false)
         }
         return
       }
 
-      // Explicit sign out — clear state immediately, no async work
+      // Explicit sign out — clear state immediately, no async work needed
       if (event === "SIGNED_OUT") {
         setUser(null)
         setProfile(null)
@@ -125,26 +155,61 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       if (session?.user) {
+        // Synchronously capture what we can from the session
+        const currentUser = session.user
+
         if (isSessionExpired()) {
           clearSessionKeys()
-          // signOut will re-trigger this listener with SIGNED_OUT
-          await supabase.auth.signOut()
+          // ⚠️ DO NOT await supabase.auth.signOut() here — the auth lock is
+          // currently held. Defer it with setTimeout so it runs after the
+          // callback returns and the lock is released.
+          setTimeout(() => {
+            if (!cancelled) {
+              supabase.auth.signOut()
+            }
+          }, 0)
           return
         }
+
         initSessionStart()
         recordActivity()
-        setUser(session.user)
-        const p = await fetchProfile(session.user.id)
-        if (!cancelled) setProfile(p)
+
+        // Set user synchronously (safe, no Supabase call)
+        setUser(currentUser)
+
+        // ⚠️ fetchProfile calls supabase.from(...) which internally may
+        // interact with the auth state / storage. Defer it to avoid any
+        // risk of deadlock under the held navigator.locks mutex.
+        setTimeout(async () => {
+          if (cancelled) return
+          const p = await fetchProfile(currentUser.id)
+          if (!cancelled) {
+            setProfile(p)
+          }
+          if (!cancelled && !initialised.current) {
+            clearTimeout(timeoutId)
+            initialised.current = true
+            setIsLoading(false)
+          }
+        }, 0)
+
+        // Mark as initialised immediately so the spinner disappears even
+        // before the profile resolves (profile is a secondary concern).
+        if (!initialised.current) {
+          clearTimeout(timeoutId)
+          initialised.current = true
+          setIsLoading(false)
+        }
       } else {
+        // No session — user is logged out
         setUser(null)
         setProfile(null)
-      }
 
-      if (!cancelled) {
-        clearTimeout(timeoutId)
-        initialised.current = true
-        setIsLoading(false)
+        if (!initialised.current) {
+          clearTimeout(timeoutId)
+          initialised.current = true
+          setIsLoading(false)
+        }
       }
     })
 
@@ -153,7 +218,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       clearTimeout(timeoutId)
       subscription.unsubscribe()
     }
-  }, [fetchProfile]) // fetchProfile is now stable too
+  }, [fetchProfile])
 
   const role = profile?.role ?? null
   const isAdmin = role === "admin"

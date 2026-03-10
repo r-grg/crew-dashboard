@@ -7,7 +7,7 @@ import { useEffect } from "react"
 import { useRouter, usePathname } from "next/navigation"
 
 export function AppShell({ children }: { children: React.ReactNode }) {
-  const { role, isLoading } = useAuth()
+  const { user, role, isLoading } = useAuth()
   const router = useRouter()
   const pathname = usePathname()
 
@@ -15,10 +15,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (isLoading) return
-    if (!role && !isPublicPage) {
+    if (!user && !isPublicPage) {
       router.replace("/login")
     }
-  }, [role, isLoading, isPublicPage, router])
+  }, [user, isLoading, isPublicPage, router])
 
   if (isLoading) {
     return (
@@ -28,7 +28,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     )
   }
 
-  if (!role) {
+  if (!user) {
     if (isPublicPage) return <>{children}</>
     // Not logged in on a protected page — show spinner while redirect fires
     return (

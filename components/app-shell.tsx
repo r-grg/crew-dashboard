@@ -29,7 +29,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   if (!role) {
-    return <>{children}</>
+    if (isPublicPage) return <>{children}</>
+    // Not logged in on a protected page — show spinner while redirect fires
+    return (
+      <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
+        <Spinner className="h-8 w-8 text-emerald-500" />
+      </div>
+    )
   }
 
   return (

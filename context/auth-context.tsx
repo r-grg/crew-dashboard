@@ -105,7 +105,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (cancelled) return
 
-      // Don't re-run full auth flow for background token refreshes
+      // Background token refresh — no UI change needed
       if (event === "TOKEN_REFRESHED") {
         if (!initialised.current) {
           initialised.current = true
@@ -114,9 +114,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return
       }
 
+      // Explicit sign out — clear state immediately, no async work
+      if (event === "SIGNED_OUT") {
+        setUser(null)
+        setProfile(null)
+        clearTimeout(timeoutId)
+        initialised.current = true
+        setIsLoading(false)
+        return
+      }
+
       if (session?.user) {
         if (isSessionExpired()) {
           clearSessionKeys()
+          // signOut will re-trigger this listener with SIGNED_OUT
           await supabase.auth.signOut()
           return
         }

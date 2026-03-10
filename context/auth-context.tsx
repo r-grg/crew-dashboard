@@ -74,8 +74,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []) // supabase is stable — no deps needed
 
   const logout = useCallback(async () => {
-    setIsLoading(true)
     clearSessionKeys()
+    setUser(null)
+    setProfile(null)
     await supabase.auth.signOut()
   }, [])
 

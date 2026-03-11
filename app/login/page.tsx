@@ -11,10 +11,21 @@ import { Label } from "@/components/ui/label"
 import { Spinner } from "@/components/ui/spinner"
 import { Shield } from "lucide-react"
 
+// MUST be at module level — never inside the component.
+// createClient() inside the component body creates a second GoTrueClient
+// instance that competes for the same navigator.locks mutex as the one in
+// auth-context.tsx. On first login the SIGNED_IN event fires on the wrong
+// instance and the auth context never sees it, leaving the spinner stuck.
+const supabase = createClient()
+
 export default function LoginPage() {
   const router = useRouter()
-  const supabase = createClient()
-  const { role, isLoading } = useAuth()
+  // Watch `user` not `role` — role only arrives after the deferred
+  // fetchProfile resolves, which can be several hundred ms after sign-in.
+  // Waiting for `role` on first login causes the spinner to sit until
+  // fetchProfile completes; if it's slow or the profile row is missing,
+  // waitingForRedirect times out and drops back to the login form.
+  const { user, isLoading } = useAuth()
 
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
@@ -25,14 +36,14 @@ export default function LoginPage() {
   useEffect(() => {
     if (isLoading) return
 
-    if (role) {
+    if (user) {
       router.replace("/dashboard")
       return
     }
 
-    // auth finished, but no role found -> stop waiting
+    // auth finished, no user → stop waiting
     setWaitingForRedirect(false)
-  }, [role, isLoading, router])
+  }, [user, isLoading, router])
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -52,12 +63,12 @@ export default function LoginPage() {
       return
     }
 
-    // Sign-in succeeded, now wait for auth context to update + redirect
+    // Sign-in succeeded — wait for auth context to set user, then redirect
     setIsSubmitting(false)
     setWaitingForRedirect(true)
   }
 
-  if (isLoading || isSubmitting || waitingForRedirect || role) {
+  if (isLoading || isSubmitting || waitingForRedirect || user) {
     return (
       <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
         <Spinner className="h-8 w-8 text-emerald-500" />

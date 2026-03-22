@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -14,6 +15,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useData } from "@/context/data-context"
+import { getUserFriendlyError, reportError } from "@/lib/errors"
 import { UserPlus } from "lucide-react"
 
 export function AddMemberDialog() {
@@ -30,10 +32,14 @@ export function AddMemberDialog() {
     setIsLoading(true)
     try {
       await addMember(name.trim())
+      toast.success(`${name.trim()} added to the crew.`)
       setName("")
       setOpen(false)
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to add member")
+      reportError(err, { action: "add_member", component: "add-member-dialog" })
+      const message = getUserFriendlyError(err, "Unable to add member. Please try again.")
+      setError(message)
+      toast.error(message)
     } finally {
       setIsLoading(false)
     }
@@ -67,6 +73,7 @@ export function AddMemberDialog() {
               className="mt-2 bg-zinc-800 border-zinc-700 text-white placeholder:text-zinc-500"
               autoFocus
             />
+            {/* Inline error — stays visible inside the dialog for context */}
             {error && (
               <p className="mt-2 text-sm text-red-400">{error}</p>
             )}

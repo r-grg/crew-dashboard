@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -13,6 +14,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useData } from "@/context/data-context"
+import { getUserFriendlyError, reportError } from "@/lib/errors"
 import type { Member } from "@/lib/types"
 
 interface EditMemberDialogProps {
@@ -41,9 +43,13 @@ export function EditMemberDialog({ member, open, onOpenChange }: EditMemberDialo
     setIsLoading(true)
     try {
       await updateMember({ id: member.id, name: name.trim() })
+      toast.success("Member updated.")
       onOpenChange(false)
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to update member")
+      reportError(err, { action: "update_member", component: "edit-member-dialog", memberId: member.id })
+      const message = getUserFriendlyError(err, "Unable to update member. Please try again.")
+      setError(message)
+      toast.error(message)
     } finally {
       setIsLoading(false)
     }
@@ -71,6 +77,7 @@ export function EditMemberDialog({ member, open, onOpenChange }: EditMemberDialo
               className="mt-2 bg-zinc-800 border-zinc-700 text-white placeholder:text-zinc-500"
               autoFocus
             />
+            {/* Inline error — stays visible inside the dialog for context */}
             {error && (
               <p className="mt-2 text-sm text-red-400">{error}</p>
             )}

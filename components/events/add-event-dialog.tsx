@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -22,6 +23,7 @@ import {
 } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
 import { useData } from "@/context/data-context"
+import { getUserFriendlyError, reportError } from "@/lib/errors"
 import { CalendarPlus } from "lucide-react"
 
 type EventCategory = "paid" | "competition"
@@ -78,6 +80,9 @@ export function AddEventDialog() {
           participants: selectedParticipants,
         })
       }
+
+      toast.success("Event added successfully.")
+
       // Reset form
       setEventName("")
       setDate("")
@@ -87,7 +92,10 @@ export function AddEventDialog() {
       setSelectedParticipants([])
       setOpen(false)
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to add event")
+      reportError(err, { action: "add_event", component: "add-event-dialog" })
+      const message = getUserFriendlyError(err, "Unable to add event. Please try again.")
+      setError(message)
+      toast.error(message)
     } finally {
       setIsLoading(false)
     }
@@ -234,6 +242,7 @@ export function AddEventDialog() {
               </div>
             </div>
 
+            {/* Inline error — visible inside the dialog for immediate context */}
             {error && (
               <p className="text-sm text-red-400 bg-red-950/30 border border-red-800/50 rounded-md px-3 py-2">
                 {error}

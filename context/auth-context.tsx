@@ -134,17 +134,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (cancelled) return
 
-      // Background token refresh — no UI change needed
+      // ── TOKEN_REFRESHED ──────────────────────────────────────────────────
+      // Background session resume. This is the only place we enforce custom
+      // inactivity / session-length expiry. We never run this check on a
+      // fresh SIGNED_IN because the user just authenticated intentionally,
+      // and stale localStorage keys from a previous session would incorrectly
+      // trigger an immediate sign-out.
       if (event === "TOKEN_REFRESHED") {
+        if (isSessionExpired()) {
+          clearSessionKeys()
+          // Defer signOut — the auth lock is currently held by this callback.
+          setTimeout(() => { if (!cancelled) supabase.auth.signOut() }, 0)
+          return
+        }
         if (!initialised.current) {
-          initialised.current = true
           clearTimeout(timeoutId)
+          initialised.current = true
           setIsLoading(false)
         }
         return
       }
 
-      // Explicit sign out — clear state immediately, no async work needed
+      // ── SIGNED_OUT ───────────────────────────────────────────────────────
+      // Explicit sign-out — clear state immediately, no async work needed.
       if (event === "SIGNED_OUT") {
         setUser(null)
         setProfile(null)
@@ -154,27 +166,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return
       }
 
+      // ── SIGNED_IN / INITIAL_SESSION (and any other event with a session) ─
+      // TOKEN_REFRESHED and SIGNED_OUT are already handled above and returned,
+      // so `event` here is narrowed to SIGNED_IN, INITIAL_SESSION,
+      // PASSWORD_RECOVERY, USER_UPDATED, MFA_CHALLENGE_VERIFIED.
       if (session?.user) {
-        // Synchronously capture what we can from the session
         const currentUser = session.user
 
-        if (isSessionExpired()) {
+        if (event === "SIGNED_IN") {
+          // Fresh explicit login — always reset the session clock so that
+          // stale keys from a previous session never poison this one.
           clearSessionKeys()
-          // ⚠️ DO NOT await supabase.auth.signOut() here — the auth lock is
-          // currently held. Defer it with setTimeout so it runs after the
-          // callback returns and the lock is released.
-          setTimeout(() => {
-            if (!cancelled) {
-              supabase.auth.signOut()
-            }
-          }, 0)
-          return
+          initSessionStart()
+          recordActivity()
+        } else {
+          // INITIAL_SESSION or any other event carrying a live session —
+          // initialise the clock if not already set, record activity.
+          initSessionStart()
+          recordActivity()
         }
 
-        initSessionStart()
-        recordActivity()
-
-        // Set user synchronously (safe, no Supabase call)
+        // Set user synchronously (safe — no Supabase call)
         setUser(currentUser)
 
         // ⚠️ fetchProfile calls supabase.from(...) which internally may
@@ -183,9 +195,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setTimeout(async () => {
           if (cancelled) return
           const p = await fetchProfile(currentUser.id)
-          if (!cancelled) {
-            setProfile(p)
-          }
+          if (!cancelled) setProfile(p)
           if (!cancelled && !initialised.current) {
             clearTimeout(timeoutId)
             initialised.current = true
@@ -193,8 +203,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }
         }, 0)
 
-        // Mark as initialised immediately so the spinner disappears even
-        // before the profile resolves (profile is a secondary concern).
+        // Mark initialised immediately so the spinner disappears even before
+        // the profile resolves (profile is a secondary concern).
         if (!initialised.current) {
           clearTimeout(timeoutId)
           initialised.current = true

@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next"
 import { Geist, Geist_Mono } from "next/font/google"
+import { Toaster } from "sonner"
 import { AuthProvider } from "@/context/auth-context"
 import { DataProvider } from "@/context/data-context"
 import { AppShell } from "@/components/app-shell"
@@ -47,6 +48,17 @@ export default function RootLayout({
             <AppShell>{children}</AppShell>
           </DataProvider>
         </AuthProvider>
+        <Toaster
+          theme="dark"
+          position="bottom-right"
+          toastOptions={{
+            style: {
+              background: "#18181b",
+              border: "1px solid #3f3f46",
+              color: "#fff",
+            },
+          }}
+        />
       </body>
     </html>
   )

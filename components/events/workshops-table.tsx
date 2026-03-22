@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { toast } from "sonner"
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table"
@@ -19,6 +20,7 @@ import { useEventYears, filterByYear } from "@/hooks/use-year-filter"
 import { usePagination } from "@/hooks/use-pagination"
 import { formatDateRange, formatCurrency } from "@/utils/calculations"
 import { EditEventDialog } from "./edit-event-dialog"
+import { getUserFriendlyError, reportError } from "@/lib/errors"
 import type { WorkshopShow } from "@/context/data-context"
 import { Pencil, Trash2 } from "lucide-react"
 
@@ -49,8 +51,12 @@ export function WorkshopsTable() {
     try {
       await deleteEvent(deletingId)
       setDeletingId(null)
+      toast.success("Event deleted.")
     } catch (err) {
-      setDeleteError(err instanceof Error ? err.message : "Failed to delete event")
+      reportError(err, { action: "delete_event", component: "workshops-table", eventId: deletingId })
+      const message = getUserFriendlyError(err, "Unable to delete event. Please try again.")
+      setDeleteError(message)
+      toast.error(message)
     } finally {
       setDeleteLoading(false)
     }
@@ -167,6 +173,7 @@ export function WorkshopsTable() {
               This will permanently delete the event and all its participant records. This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
+          {/* Inline error kept here — dialog stays open on failure so the user can retry or cancel */}
           {deleteError && (
             <p className="text-sm text-red-400 bg-red-950/30 border border-red-800/50 rounded-md px-3 py-2">
               {deleteError}

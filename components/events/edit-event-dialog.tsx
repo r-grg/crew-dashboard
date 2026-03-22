@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -21,6 +22,7 @@ import {
 } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
 import { useData, type WorkshopShow, type InviteBattle } from "@/context/data-context"
+import { getUserFriendlyError, reportError } from "@/lib/errors"
 
 type EditableEvent = WorkshopShow | InviteBattle
 
@@ -93,9 +95,14 @@ export function EditEventDialog({ event, open, onOpenChange }: EditEventDialogPr
           participant_ids: selectedIds,
         })
       }
+
+      toast.success("Event updated successfully.")
       onOpenChange(false)
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to update event")
+      reportError(err, { action: "update_event", component: "edit-event-dialog", eventId: event.id })
+      const message = getUserFriendlyError(err, "Unable to update event. Please try again.")
+      setError(message)
+      toast.error(message)
     } finally {
       setIsLoading(false)
     }
@@ -189,28 +196,29 @@ export function EditEventDialog({ event, open, onOpenChange }: EditEventDialogPr
                 {members
                   .filter((m) => m.active || selectedIds.includes(m.id))
                   .map((member) => (
-                  <div key={member.id} className="flex items-center space-x-2">
-                    <Checkbox
-                      id={`edit-participant-${member.id}`}
-                      checked={selectedIds.includes(member.id)}
-                      onCheckedChange={() => toggleParticipant(member.id)}
-                      disabled={!member.active}
-                      className="border-zinc-600 data-[state=checked]:bg-emerald-600 data-[state=checked]:border-emerald-600 disabled:opacity-40"
-                    />
-                    <label
-                      htmlFor={`edit-participant-${member.id}`}
-                      className={`text-sm cursor-pointer ${
-                        member.active ? "text-zinc-300" : "text-zinc-500 italic"
-                      }`}
-                    >
-                      {member.name}
-                      {!member.active && " (inactive)"}
-                    </label>
-                  </div>
-                ))}
+                    <div key={member.id} className="flex items-center space-x-2">
+                      <Checkbox
+                        id={`edit-participant-${member.id}`}
+                        checked={selectedIds.includes(member.id)}
+                        onCheckedChange={() => toggleParticipant(member.id)}
+                        disabled={!member.active}
+                        className="border-zinc-600 data-[state=checked]:bg-emerald-600 data-[state=checked]:border-emerald-600 disabled:opacity-40"
+                      />
+                      <label
+                        htmlFor={`edit-participant-${member.id}`}
+                        className={`text-sm cursor-pointer ${
+                          member.active ? "text-zinc-300" : "text-zinc-500 italic"
+                        }`}
+                      >
+                        {member.name}
+                        {!member.active && " (inactive)"}
+                      </label>
+                    </div>
+                  ))}
               </div>
             </div>
 
+            {/* Inline error — stays visible inside the open dialog */}
             {error && (
               <p className="text-sm text-red-400 bg-red-950/30 border border-red-800/50 rounded-md px-3 py-2">
                 {error}
